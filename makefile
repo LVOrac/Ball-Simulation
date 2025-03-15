@@ -1,54 +1,46 @@
-FLAGS := 
-DEFINE := 
-
 CC = g++
-MAKE = make
-PCH = include/mfwpch.h
-CFLAGS := $(FLAGS) -include $(PCH) -DUNICODE $(DEFINE)
-SOURCE = src src/** src/**/**
-LIBRARY = lib/stb_image lib/imgui
+CFLAGS := -std=c++17 -Wall -Wextra -Wpedantic -Wstrict-aliasing -g -O2
+SOURCE = src src/**
 INCLUDE = -Ilib -Iinclude
-LIB = -lopengl32 -lGdi32 -lWinmm -ld3dcompiler -ldwmapi -static-libgcc -static-libstdc++ -Wl,-Bstatic -lstdc++ -Wl,-Bdynamic
+LIB = bin/mfw.dll -static-libgcc -static-libstdc++ -Wl,-Bstatic -lstdc++ -lpthread -Wl,-Bdynamic
 
 SRC = $(wildcard $(patsubst %, %/*.cpp, $(SOURCE)))
-LIBOBJ = $(wildcard $(patsubst %, %/*.o, $(LIBRARY))) 
 OBJ = $(SRC:%.cpp=%.o)
 DEP = $(OBJ:%.o=%.d)
 BIN = bin
-OUT = $(BIN)/main.exe
+
+PROGRAM = demo
+OUT = $(BIN)/$(PROGRAM)
+
+ifeq ($(OS), Windows_NT)
+	OUT = $(BIN)/$(PROGRAM).exe
+endif
 
 .PHONY: all clean
 
-all: bin win_debug
+all: bin app
+
+run:
+	@./$(OUT)
+
+debug:
+	@gdb -q $(OUT) --eval-command=run --eval-command=exit
+
+clean:
+	@rm -rf $(BIN) $(OBJ) $(DEP) $(OUT)
+	@echo Cleaned
+
+build: bin
+	@cp lib/mfw.dll bin/mfw.dll
 
 bin:
 	@mkdir -p $(BIN)
 
-run:
-	./$(OUT)
-
-clean:
-	@rm -rf $(OBJ) $(DEP)
-	@echo Cleaned
-
-build: bin
-	@echo "Compiling library"
-	cd lib/stb_image && $(CC) -c stb_image.cpp
-	cd lib/imgui && $(CC) -c -O2 ./*.cpp
-	$(CC) -x c++-header $(INCLUDE) -o $(PCH).gch -c $(PCH)
-	@echo "Complete"
-
-app: $(OBJ) 
-	$(CC) -o $(OUT) $(OBJ) $(LIBOBJ) $(LIB)
+app: build $(OBJ) 
+	$(CC) -o $(OUT) $(OBJ) $(LIB)
 	@echo "[100%] Compilation completed"
 
 %.o: %.cpp
 	$(CC) $(CFLAGS) $(INCLUDE) -o $@ -c $< -MMD
-
-win_release: CFLAGS+=-std=c++17 -O2
-win_release: app
-
-win_debug: CFLAGS+=-std=c++17 -Wall -Wextra -Wpedantic -Wstrict-aliasing -g -DDEBUG
-win_debug: app
 
 -include $(DEP)
